@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { User } from '../types';
+import { api } from '../services/api';
 
 interface AuthFormProps {
   onLogin: (user: User) => void;
@@ -11,20 +12,27 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Simulate auth logic
-    const mockUser: User = {
-      id: btoa(email), // Simple mock ID
-      email,
-      name: isLogin ? email.split('@')[0] : name
-    };
+    setLoading(true);
+    setError(null);
 
-    // Simple persistence for the demo
-    localStorage.setItem(`user_${mockUser.id}`, JSON.stringify(mockUser));
-    onLogin(mockUser);
+    try {
+      let user;
+      if (isLogin) {
+        user = await api.auth.login({ email, password });
+      } else {
+        user = await api.auth.register({ name, email, password });
+      }
+      onLogin(user);
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during authentication');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -34,6 +42,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
           <h1 className="text-3xl font-bold text-gray-800">Money Tracker</h1>
           <p className="text-gray-500 mt-2">Manage your wealth smarter</p>
         </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {!isLogin && (
@@ -74,15 +88,19 @@ const AuthForm: React.FC<AuthFormProps> = ({ onLogin }) => {
 
           <button
             type="submit"
-            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-200"
+            disabled={loading}
+            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow-md transition-colors duration-200 disabled:opacity-50"
           >
-            {isLogin ? 'Sign In' : 'Create Account'}
+            {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
         </form>
 
         <div className="mt-8 text-center">
           <button
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError(null);
+            }}
             className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}

@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Expense, User, ViewType, AppTab } from './types';
 import AuthForm from './components/AuthForm';
 import Dashboard from './components/Dashboard';
 import ExpenseForm from './components/ExpenseForm';
 import ExpenseList from './components/ExpenseList';
 import Settings from './components/Settings';
+import { api } from './services/api';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -13,64 +14,84 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewType>('Monthly');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
+  const [loading, setLoading] = useState(true);
 
-  // Load user from localStorage
+  // Initial load
   useEffect(() => {
     const savedUser = localStorage.getItem('current_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    const token = localStorage.getItem('auth_token');
+    
+    if (savedUser && token) {
+      const parsedUser = JSON.parse(savedUser);
+      setUser(parsedUser);
+      fetchExpenses();
+    } else {
+      setLoading(false);
     }
   }, []);
 
-  // Load expenses when user changes
-  useEffect(() => {
-    if (user) {
-      const savedExpenses = localStorage.getItem(`expenses_${user.id}`);
-      if (savedExpenses) {
-        setExpenses(JSON.parse(savedExpenses));
-      } else {
-        setExpenses([]);
-      }
+  const fetchExpenses = async () => {
+    try {
+      const data = await api.expenses.getAll();
+      setExpenses(data);
+    } catch (err) {
+      console.error(err);
+      handleLogout(); // If token is invalid
+    } finally {
+      setLoading(false);
     }
-  }, [user]);
-
-  // Persistence
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem(`expenses_${user.id}`, JSON.stringify(expenses));
-      // Save user preferences if updated
-      localStorage.setItem('current_user', JSON.stringify(user));
-    }
-  }, [expenses, user]);
+  };
 
   const handleLogin = (newUser: User) => {
     setUser(newUser);
     localStorage.setItem('current_user', JSON.stringify(newUser));
+    fetchExpenses();
   };
 
   const handleLogout = () => {
     setUser(null);
+    api.auth.logout();
     localStorage.removeItem('current_user');
+    setExpenses([]);
   };
 
-  const addExpense = (expenseData: Omit<Expense, 'id' | 'userId' | 'createdAt'>) => {
-    if (!user) return;
-    const newExpense: Expense = {
-      ...expenseData,
-      id: crypto.randomUUID(),
-      userId: user.id,
-      createdAt: Date.now()
-    };
-    setExpenses(prev => [...prev, newExpense]);
+  const addExpense = async (expenseData: Omit<Expense, 'id' | 'userId' | 'createdAt'>) => {
+    try {
+      const newExpense = await api.expenses.create(expenseData);
+      setExpenses(prev => [newExpense, ...prev]);
+    } catch (err) {
+      alert('Failed to add expense');
+    }
   };
 
-  const deleteExpense = (id: string) => {
-    setExpenses(prev => prev.filter(e => e.id !== id));
+  const deleteExpense = async (id: string) => {
+    try {
+      await api.expenses.delete(id);
+      setExpenses(prev => prev.filter(e => e.id !== id));
+    } catch (err) {
+      alert('Failed to delete expense');
+    }
   };
 
-  const handleUpdateUser = (updatedUser: User) => {
-    setUser(updatedUser);
+  const handleUpdateUser = async (updatedUser: User) => {
+    if (updatedUser.preferences) {
+      try {
+        const savedUser = await api.user.updatePreferences(updatedUser.preferences);
+        setUser(savedUser);
+        localStorage.setItem('current_user', JSON.stringify(savedUser));
+      } catch (err) {
+        alert('Failed to update settings');
+      }
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   if (!user) {
     return <AuthForm onLogin={handleLogin} />;
@@ -78,7 +99,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
-      {/* Navigation */}
       <nav className="bg-white border-b border-gray-100 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
@@ -163,7 +183,6 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Floating Action Button for Mobile */}
       <button
         onClick={() => setIsFormOpen(true)}
         className="md:hidden fixed bottom-6 right-6 w-16 h-16 bg-indigo-600 text-white rounded-full shadow-2xl flex items-center justify-center z-50 animate-bounce transition-transform active:scale-90"
