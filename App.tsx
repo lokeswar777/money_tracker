@@ -1,18 +1,18 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Expense, User, ViewType } from './types';
+import { Expense, User, ViewType, AppTab } from './types';
 import AuthForm from './components/AuthForm';
 import Dashboard from './components/Dashboard';
 import ExpenseForm from './components/ExpenseForm';
 import ExpenseList from './components/ExpenseList';
-import AIInsights from './components/AIInsights';
+import Settings from './components/Settings';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [view, setView] = useState<ViewType>('Monthly');
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'history'>('dashboard');
+  const [activeTab, setActiveTab] = useState<AppTab>('dashboard');
 
   // Load user from localStorage
   useEffect(() => {
@@ -38,6 +38,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (user) {
       localStorage.setItem(`expenses_${user.id}`, JSON.stringify(expenses));
+      // Save user preferences if updated
+      localStorage.setItem('current_user', JSON.stringify(user));
     }
   }, [expenses, user]);
 
@@ -64,6 +66,10 @@ const App: React.FC = () => {
 
   const deleteExpense = (id: string) => {
     setExpenses(prev => prev.filter(e => e.id !== id));
+  };
+
+  const handleUpdateUser = (updatedUser: User) => {
+    setUser(updatedUser);
   };
 
   if (!user) {
@@ -102,8 +108,6 @@ const App: React.FC = () => {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <AIInsights expenses={expenses} />
-
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div className="flex items-center bg-white p-1 rounded-xl shadow-sm border border-gray-100">
             <button
@@ -116,7 +120,13 @@ const App: React.FC = () => {
               onClick={() => setActiveTab('history')}
               className={`px-6 py-2 rounded-lg font-semibold text-sm transition ${activeTab === 'history' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
             >
-              Expense History
+              History
+            </button>
+             <button
+              onClick={() => setActiveTab('settings')}
+              className={`px-6 py-2 rounded-lg font-semibold text-sm transition ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500 hover:bg-gray-50'}`}
+            >
+              Settings
             </button>
           </div>
 
@@ -146,8 +156,10 @@ const App: React.FC = () => {
 
         {activeTab === 'dashboard' ? (
           <Dashboard expenses={expenses} view={view} />
-        ) : (
+        ) : activeTab === 'history' ? (
           <ExpenseList expenses={expenses} onDelete={deleteExpense} />
+        ) : (
+          <Settings user={user} onUpdateUser={handleUpdateUser} />
         )}
       </main>
 

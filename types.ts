@@ -11,10 +11,18 @@ export interface Expense {
   createdAt: number;
 }
 
+export interface NotificationSettings {
+  daily: boolean;
+  weekly: boolean;
+  monthly: boolean;
+  email: string;
+}
+
 export interface User {
   id: string;
   email: string;
   name: string;
+  preferences?: NotificationSettings;
 }
 
 export interface AuthState {
@@ -23,3 +31,4 @@ export interface AuthState {
 }
 
 export type ViewType = 'Daily' | 'Monthly' | 'Yearly';
+export type AppTab = 'dashboard' | 'history' | 'settings';

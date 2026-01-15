@@ -1,5 +1,5 @@
 {
-  "name": "Money Tracker AI",
-  "description": "A smart personal finance manager with expense tracking, visual analytics, and AI-powered spending insights using Gemini.",
+  "name": "Money Tracker",
+  "description": "A clean personal finance manager with expense tracking and visual analytics.",
   "requestFramePermissions": []
 }
